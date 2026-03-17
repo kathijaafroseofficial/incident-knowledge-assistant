@@ -1,5 +1,6 @@
-# Combined image: OpenClaw gateway + Incident Knowledge API (single Render service)
-# API listens on $PORT; OpenClaw on 3000 (internal). Set OPENCLAW_GATEWAY_URL=http://127.0.0.1:3000 in Render.
+# Combined image: OpenClaw gateway + Incident Knowledge API (single Render service).
+# Post-deploy: OpenAI + OpenClaw only. Set OPENAI_API_KEY and OPENCLAW_GATEWAY_TOKEN in Render.
+# API listens on $PORT; OpenClaw on 3000 (internal).
 
 # ── Stage 1: Build OpenClaw ──────────────────────────────────────
 FROM node:24-bookworm AS openclaw-build

@@ -8,6 +8,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config
 from .base import BotProvider
 import requests
+from compliance import (
+    COMPLIANCE_SYSTEM_PROMPT,
+    validate_input,
+    validate_output,
+)
 
 
 class OpenClawBotProvider(BotProvider):
@@ -22,11 +27,15 @@ class OpenClawBotProvider(BotProvider):
         return "OpenClaw"
 
     def chat(self, user_message: str, context: str = "") -> str:
+        # Compliance: reject prompt injection / adversarial input; return fixed message
+        ok, refusal = validate_input(user_message, context)
+        if not ok:
+            return refusal
         # Build user prompt with incident context (same pattern as other bots)
         prompt = user_message
         if context:
             prompt = (
-                "You are an Incident Knowledge Assistant. Use the following error log / incident data as context. "
+                "Use the following error log / incident data as context. "
                 "Provide clear, actionable recommended fixes.\n\n"
                 f"Context:\n{context}\n\nUser question: {user_message}"
             )
@@ -37,13 +46,15 @@ class OpenClawBotProvider(BotProvider):
         # Agent selection: which OpenClaw agent handles the chat (default: main)
         agent_id = getattr(config, "OPENCLAW_AGENT_ID", "main") or "main"
         headers["x-openclaw-agent-id"] = agent_id
+        # System message for compliance (prompt injection, leakage, safety, edge cases)
+        messages = [
+            {"role": "system", "content": COMPLIANCE_SYSTEM_PROMPT},
+            {"role": "user", "content": prompt},
+        ]
         try:
             r = requests.post(
                 f"{config.OPENCLAW_GATEWAY_URL.rstrip('/')}/v1/chat/completions",
-                json={
-                    "model": "openclaw",
-                    "messages": [{"role": "user", "content": prompt}],
-                },
+                json={"model": "openclaw", "messages": messages},
                 headers=headers,
                 timeout=120,
             )
@@ -51,7 +62,12 @@ class OpenClawBotProvider(BotProvider):
             data = r.json()
             # OpenAI-compatible response shape
             choice = (data.get("choices") or [{}])[0]
-            return (choice.get("message") or {}).get("content", "").strip()
+            reply = (choice.get("message") or {}).get("content", "").strip()
+            # Compliance: if output looks like leakage or bypass, do not show model output
+            out_ok, out_refusal = validate_output(reply)
+            if not out_ok:
+                return out_refusal
+            return reply
         except Exception as e:
             return (
                 f"OpenClaw error: {e}. "

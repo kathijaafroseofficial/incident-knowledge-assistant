@@ -30,36 +30,18 @@ This deploys the **Incident Knowledge API** and **OpenClaw gateway** in a **sing
    | `OPENCLAW_GATEWAY_TOKEN` | A secret you create (gateway auth). |
    | `OPENCLAW_AUTH_TOKEN` | **Same value** as `OPENCLAW_GATEWAY_TOKEN` |
 
-   **Model — default is OpenAI GPT-5-nano (set OPENAI_API_KEY):**
+   **Model — OpenAI only (post-deploy uses OpenClaw + OpenAI):**
 
    | Key | Value (what to set) |
    |-----|----------------------|
-   | `OPENAI_API_KEY` | **Default.** OpenAI key from [platform.openai.com](https://platform.openai.com). OpenClaw uses **GPT-5-nano**. |
-   | `GROQ_API_KEY` | Optional. Free key from [console.groq.com](https://console.groq.com); uses **Llama 3.1 8B** when set and no OPENCLAW_DEFAULT_MODEL. |
+   | `OPENAI_API_KEY` | **Required.** OpenAI key from [platform.openai.com](https://platform.openai.com). OpenClaw uses **openai/gpt-5-nano** by default. |
 
-   **Model — optional (Claude):** Only if you prefer Claude over Qwen: set `ANTHROPIC_API_KEY` (from [console.anthropic.com](https://console.anthropic.com)). If both `GROQ_API_KEY` and `ANTHROPIC_API_KEY` are set, Groq (Qwen) is used.
+   **Optional:** `OPENCLAW_DEFAULT_MODEL` — override the model. Examples: `openai/gpt-5-nano`, `openai/gpt-4o-mini`, `openai/gpt-4o`. `OPENCLAW_AGENT_ID` = `main` (default).
 
-   **Optional:** `OPENCLAW_DEFAULT_MODEL` — overrides auto-selection. Examples: `openai/gpt-5-nano`, `groq/llama-3.1-8b-instant`, `groq/qwen/qwen3-32b`, `qwen-portal/coder-model`, `anthropic/claude-3-5-sonnet-latest`. `OPENCLAW_AGENT_ID` = `main` (default).  
-   **Optional (Qwen portal with OAuth tokens):** Set these **Secret** env vars so the container can use Qwen without interactive login. Get the values from your local OpenClaw after running `openclaw models auth login --provider qwen-portal` (check `~/.openclaw/agents/main/agent/auth-profiles.json` or your state dir):
-
-   | Key | Value (set as Secret in Render) |
-   |-----|---------------------------------|
-   | `OPENCLAW_QWEN_PORTAL_ACCESS_TOKEN` | The `access` value from the qwen-portal:default profile. |
-   | `OPENCLAW_QWEN_PORTAL_REFRESH_TOKEN` | The `refresh` value from the qwen-portal:default profile. |
-   | `OPENCLAW_QWEN_PORTAL_EXPIRES` | The `expires` value (Unix ms). Optional; use 0 if unsure. |
-
-   When **access** and **refresh** are set, the start script writes the auth profile and uses **qwen-portal/coder-model**. Do **not** commit these values to git; use Render **Secret** environment variables only.
-
-   **Alternative — OAuth via API (recommended):** Call **`POST /auth/qwen-portal`** with the same `Authorization: Bearer <API_BEARER_TOKEN>` header. The API runs `openclaw models auth login --provider qwen-portal --set-default` in the container and **streams the command output** (logs) to the response. Open the URL shown in the stream (e.g. `https://chat.qwen.ai/authorize?user_code=XXXXX&client=qwen-code`) in your browser, enter the code, and approve. The request stays open until you finish; then the tokens are saved and **qwen-portal/coder-model** is used for `POST /chat`. Use a client that supports long-lived streaming (e.g. 2–5 min) and displays the response body as text (e.g. curl, or a small frontend).  
-
-   **Alternative — OAuth via startup logs (one-time):** Set `OPENCLAW_QWEN_PORTAL_AUTH_INTERACTIVE=true` and deploy; the start script prints the URL in **Render → Logs**. Open it and approve; then tokens are saved.  
-
-   **Workspace:** The start script sets `agents.defaults.workspace` to `$OPENCLAW_STATE_DIR/workspace` (e.g. `/data/workspace`), so paths match the deployed environment.  
+   **Workspace:** The start script sets `agents.defaults.workspace` to `$OPENCLAW_STATE_DIR/workspace` (e.g. `/data/workspace`).  
    **Do not set:** `PORT` — Render sets it automatically.
 
-   **If you see "API rate limit reached":** The default is now Llama 3.1 8B (higher free limits). If you set `OPENCLAW_DEFAULT_MODEL=groq/qwen/qwen3-32b`, Qwen has a lower quota (1,000 req/day); wait and retry or remove that env to use Llama.
-
-   **Sample — OpenAI GPT-5-nano (copy and replace placeholders):**
+   **Sample — OpenAI + OpenClaw (copy and replace placeholders):**
 
    ```
    API_BEARER_TOKEN=your-secret-for-post-chat-min-32-chars
@@ -70,8 +52,6 @@ This deploys the **Incident Knowledge API** and **OpenClaw gateway** in a **sing
    OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
    ```
 
-   For **Groq** instead: omit `OPENAI_API_KEY` and set `GROQ_API_KEY=gsk_...`. Use the **same** value for `OPENCLAW_GATEWAY_TOKEN` and `OPENCLAW_AUTH_TOKEN`.
-
 4. **Advanced → Start Command:** leave empty (the image uses `ENTRYPOINT`).
 
 5. **Create Web Service.** The first build can take 10–20 minutes (building OpenClaw). Later deploys are faster if the cache is reused.
@@ -80,7 +60,7 @@ This deploys the **Incident Knowledge API** and **OpenClaw gateway** in a **sing
 
 ## Summary
 
-- **One Render app** = API + OpenClaw in one container.
+- **One Render app** = API + OpenClaw in one container. **OpenAI + OpenClaw only** (set `OPENAI_API_KEY`).
 - **Public URL** = your API only (`/chat`, `/docs`).
 - **OpenClaw** runs on port 3000 inside the container; the API calls it at `http://127.0.0.1:3000`.
 - No second Render service and no separate OpenClaw URL to manage.
