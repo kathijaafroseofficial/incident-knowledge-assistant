@@ -11,13 +11,18 @@ mkdir -p "$OPENCLAW_STATE_DIR/workspace"
 
 # Create openclaw.json from env so chat completions work (no persistent disk)
 # OPENCLAW_GATEWAY_TOKEN must be set in Render; same token as OPENCLAW_AUTH_TOKEN for the API.
-# Model: default Llama 3.1 8B. Set OPENCLAW_DEFAULT_MODEL for Qwen (Groq) or qwen-portal/coder-model (OAuth).
-# Set OPENCLAW_USE_QWEN_PORTAL=true to add qwen-portal provider + OAuth profile (tokens must be pre-seeded in state).
+# Model: default OpenAI GPT-5-nano (set OPENAI_API_KEY). Set OPENCLAW_DEFAULT_MODEL to override.
+# Set OPENCLAW_USE_QWEN_PORTAL=true for qwen-portal; set GROQ_API_KEY for Groq Llama.
 if [ -n "$OPENCLAW_GATEWAY_TOKEN" ]; then
-  PRIMARY_MODEL="${OPENCLAW_DEFAULT_MODEL:-groq/llama-3.1-8b-instant}"
   USE_QWEN_PORTAL="${OPENCLAW_USE_QWEN_PORTAL:-false}"
-  if [ "$USE_QWEN_PORTAL" = "true" ]; then
-    PRIMARY_MODEL="${OPENCLAW_DEFAULT_MODEL:-qwen-portal/coder-model}"
+  if [ -n "$OPENCLAW_DEFAULT_MODEL" ]; then
+    PRIMARY_MODEL="$OPENCLAW_DEFAULT_MODEL"
+  elif [ "$USE_QWEN_PORTAL" = "true" ]; then
+    PRIMARY_MODEL="qwen-portal/coder-model"
+  elif [ -n "$GROQ_API_KEY" ]; then
+    PRIMARY_MODEL="groq/llama-3.1-8b-instant"
+  else
+    PRIMARY_MODEL="openai/gpt-5-nano"
   fi
 
   if [ "$USE_QWEN_PORTAL" = "true" ] || [ "$PRIMARY_MODEL" = "qwen-portal/coder-model" ] || [ "$PRIMARY_MODEL" = "qwen-portal/vision-model" ]; then
