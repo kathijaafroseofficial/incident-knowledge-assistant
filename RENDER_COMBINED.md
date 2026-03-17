@@ -38,7 +38,9 @@ This deploys the **Incident Knowledge API** and **OpenClaw gateway** in a **sing
 
    **Model — optional (Claude):** Only if you prefer Claude over Qwen: set `ANTHROPIC_API_KEY` (from [console.anthropic.com](https://console.anthropic.com)). If both `GROQ_API_KEY` and `ANTHROPIC_API_KEY` are set, Groq (Qwen) is used.
 
-   **Optional:** `OPENCLAW_DEFAULT_MODEL` — default is `groq/llama-3.1-8b-instant`. Use `groq/qwen/qwen3-32b` for Qwen, or `anthropic/claude-3-5-sonnet-latest` for Claude. `OPENCLAW_AGENT_ID` = `main` (default).  
+   **Optional:** `OPENCLAW_DEFAULT_MODEL` — default is `groq/llama-3.1-8b-instant`. Use `groq/qwen/qwen3-32b` for Qwen (Groq), or `qwen-portal/coder-model` / `qwen-portal/vision-model` for Qwen portal, or `anthropic/claude-3-5-sonnet-latest` for Claude. `OPENCLAW_AGENT_ID` = `main` (default).  
+   **Optional (Qwen portal):** `OPENCLAW_USE_QWEN_PORTAL=true` — adds qwen-portal provider and OAuth profile so the default model becomes `qwen-portal/coder-model`. **Note:** Qwen portal uses OAuth (browser login). In a headless container you must pre-seed OAuth tokens (e.g. copy the `auth` state from a local OpenClaw that has run `openclaw models auth login --provider qwen-portal`) into the container state dir; otherwise use Groq with `GROQ_API_KEY` for API-key auth.  
+   **Workspace:** The start script sets `agents.defaults.workspace` to `$OPENCLAW_STATE_DIR/workspace` (e.g. `/data/workspace`), so paths match the deployed environment.  
    **Do not set:** `PORT` — Render sets it automatically.
 
    **If you see "API rate limit reached":** The default is now Llama 3.1 8B (higher free limits). If you set `OPENCLAW_DEFAULT_MODEL=groq/qwen/qwen3-32b`, Qwen has a lower quota (1,000 req/day); wait and retry or remove that env to use Llama.

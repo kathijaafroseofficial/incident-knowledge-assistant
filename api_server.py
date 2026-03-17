@@ -50,6 +50,14 @@ def chat_post(
     try:
         bot = get_bot()
         reply = bot.chat(body.message, context=body.context)
+        # Return 429 when backend (e.g. Groq) rate limits so clients can retry
+        if reply and "rate limit" in reply.lower():
+            raise HTTPException(
+                status_code=429,
+                detail="Rate limit reached. Wait a few minutes or try again later.",
+            )
         return {"reply": reply, "bot": bot.name}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

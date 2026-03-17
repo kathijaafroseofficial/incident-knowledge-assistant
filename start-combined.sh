@@ -4,27 +4,83 @@
 
 set -e
 
-# OpenClaw state dir (ephemeral on Render free tier)
+# OpenClaw state dir (ephemeral on Render free tier); workspace for deployed path
 export OPENCLAW_STATE_DIR="${OPENCLAW_STATE_DIR:-/data}"
 mkdir -p "$OPENCLAW_STATE_DIR"
+mkdir -p "$OPENCLAW_STATE_DIR/workspace"
 
 # Create openclaw.json from env so chat completions work (no persistent disk)
 # OPENCLAW_GATEWAY_TOKEN must be set in Render; same token as OPENCLAW_AUTH_TOKEN for the API.
-# Model: default Llama 3.1 8B (higher free-tier limits). Set OPENCLAW_DEFAULT_MODEL for Qwen e.g. groq/qwen/qwen3-32b
+# Model: default Llama 3.1 8B. Set OPENCLAW_DEFAULT_MODEL for Qwen (Groq) or qwen-portal/coder-model (OAuth).
+# Set OPENCLAW_USE_QWEN_PORTAL=true to add qwen-portal provider + OAuth profile (tokens must be pre-seeded in state).
 if [ -n "$OPENCLAW_GATEWAY_TOKEN" ]; then
   PRIMARY_MODEL="${OPENCLAW_DEFAULT_MODEL:-groq/llama-3.1-8b-instant}"
-  cat > "$OPENCLAW_STATE_DIR/openclaw.json" << EOF
+  USE_QWEN_PORTAL="${OPENCLAW_USE_QWEN_PORTAL:-false}"
+  if [ "$USE_QWEN_PORTAL" = "true" ]; then
+    PRIMARY_MODEL="${OPENCLAW_DEFAULT_MODEL:-qwen-portal/coder-model}"
+  fi
+
+  if [ "$USE_QWEN_PORTAL" = "true" ] || [ "$PRIMARY_MODEL" = "qwen-portal/coder-model" ] || [ "$PRIMARY_MODEL" = "qwen-portal/vision-model" ]; then
+    # Config with qwen-portal provider and OAuth profile; workspace = deployed path
+    cat > "$OPENCLAW_STATE_DIR/openclaw.json" << EOF
+{
+  "auth": {
+    "profiles": {
+      "qwen-portal:default": {
+        "provider": "qwen-portal",
+        "mode": "oauth"
+      }
+    }
+  },
+  "models": {
+    "providers": {
+      "qwen-portal": {
+        "baseUrl": "https://portal.qwen.ai/v1",
+        "apiKey": "qwen-oauth",
+        "api": "openai-completions",
+        "models": [
+          { "id": "coder-model", "name": "Qwen Coder", "reasoning": false, "input": ["text"], "contextWindow": 128000, "maxTokens": 8192 },
+          { "id": "vision-model", "name": "Qwen Vision", "reasoning": false, "input": ["text", "image"], "contextWindow": 128000, "maxTokens": 8192 }
+        ]
+      }
+    }
+  },
+  "gateway": {
+    "http": { "endpoints": { "chatCompletions": { "enabled": true } } },
+    "auth": { "mode": "token", "token": "$OPENCLAW_GATEWAY_TOKEN" }
+  },
+  "agents": {
+    "defaults": {
+      "model": { "primary": "$PRIMARY_MODEL" },
+      "workspace": "$OPENCLAW_STATE_DIR/workspace"
+    },
+    "list": [{ "id": "main", "default": true, "model": "$PRIMARY_MODEL" }]
+  },
+  "plugins": {
+    "entries": {
+      "qwen-portal-auth": { "enabled": true }
+    }
+  }
+}
+EOF
+  else
+    # Groq/default config with workspace = deployed path
+    cat > "$OPENCLAW_STATE_DIR/openclaw.json" << EOF
 {
   "gateway": {
     "http": { "endpoints": { "chatCompletions": { "enabled": true } } },
     "auth": { "mode": "token", "token": "$OPENCLAW_GATEWAY_TOKEN" }
   },
   "agents": {
-    "defaults": { "model": { "primary": "$PRIMARY_MODEL" } },
+    "defaults": {
+      "model": { "primary": "$PRIMARY_MODEL" },
+      "workspace": "$OPENCLAW_STATE_DIR/workspace"
+    },
     "list": [{ "id": "main", "default": true }]
   }
 }
 EOF
+  fi
 fi
 
 # Start OpenClaw gateway on 3000 (internal); API will use OPENCLAW_GATEWAY_URL=http://127.0.0.1:3000
