@@ -40,5 +40,7 @@ OPENCLAW_PID=$!
 sleep 3
 
 # Run the Incident Knowledge API on $PORT (Render sends traffic here)
+# Force gateway URL so the API talks to in-container OpenClaw on 3000 (not default 18789)
+export OPENCLAW_GATEWAY_URL="${OPENCLAW_GATEWAY_URL:-http://127.0.0.1:3000}"
 cd /app
 exec /app/venv/bin/python3 -m uvicorn api_server:app --host 0.0.0.0 --port "${PORT:-8000}"
