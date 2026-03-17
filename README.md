@@ -1,228 +1,198 @@
-# Incident Knowledge Assistant — Giggso Build–Break Challenge (PS1)
+# Giggso Incident Bot
 
-A **Python-based** bot that processes incident descriptions (error logs) and provides **recommended fixes**. Built for the Build–Break Challenge with **dual-input** (upload/paste log), **chat interface**, **voice assistance**, and mandatory support for **MoltBot, ClawDBot, or Nanobot**.
+A **Python-based** incident assistant that takes error logs (upload or paste) and returns **recommended fixes** via chat. It includes a **Streamlit UI** (Giggso Incident Bot), a **public REST API** with Bearer auth, **compliance checks** (prompt injection, leakage, safety), and optional **voice input**. The default backend is **OpenClaw** with **OpenAI** (e.g. GPT-5-nano).
 
 ---
 
 ## Features
 
-- **Dual-input architecture**: Upload a log file **or** paste raw log/JSON; you can **swap or update** the input source at any time during the session.
-- **Chat interface**: Ask questions about the incident and get recommended fixes in plain language.
-- **Voice-based assistance**: Use the microphone for speech-to-text (open-source: SpeechRecognition + Google Web API) and optional text-to-speech (gTTS).
-- **Mandatory bot integration**: Supports **MoltBot**, **ClawDBot**, or **Nanobot** (when URLs are provided); open-source fallback via **Ollama** or any **OpenAI-compatible** API.
-- **Public POST endpoint**: Exposed API with **Bearer token** authentication (`Authorization: Bearer <token>`).
+- **Giggso Incident Bot UI** — Streamlit chat with incident context (upload file or paste log), prompt box, and highlighted **voice input**.
+- **Dual input** — Upload a log file or paste raw log/JSON; you can change the source anytime.
+- **Compliance** — Input validation (prompt injection / adversarial patterns), system prompt for safe behavior, and output checks (no leakage). Non-compliant requests get fixed refusal messages.
+- **OpenClaw + OpenAI** — OpenClaw gateway with OpenAI models (default `openai/gpt-5-nano`). One combined Docker image runs both API and OpenClaw.
+- **Public API** — `POST /chat` with `Authorization: Bearer <token>`; same bot and compliance as the UI.
+- **Voice** — Optional speech-to-text (SpeechRecognition + Google) and text-to-speech (gTTS) in the UI.
+- **Other backends** — Optional: MoltBot/ClawDBot/Nanobot (URLs), Ollama, or any OpenAI-compatible API (e.g. Groq, OpenRouter).
 
 ---
 
-## Tech Stack (all open-source where applicable)
+## Tech stack
 
-| Component        | Choice                                      |
-|-----------------|---------------------------------------------|
-| Frontend        | **Streamlit** (embedded HTML/CSS)           |
-| API             | **FastAPI** + **Uvicorn**                   |
-| Bots            | MoltBot / ClawDBot / Nanobot + **Ollama**   |
-| Voice STT       | **SpeechRecognition** + Google (free)       |
-| Voice TTS       | **gTTS** (Google TTS)                       |
-| Config          | **python-dotenv**                           |
-
----
-
-## Free public deployment (no cloud infra)
-
-You can make the app and the **POST API** publicly available for free:
-
-- **POST /chat API (public):** Deploy the API to **[Render](https://render.com)** or **[Railway](https://railway.app)** (free tier). Use the repo’s `render.yaml` or set start command `uvicorn api_server:app --host 0.0.0.0 --port $PORT` and add env vars (`API_BEARER_TOKEN`, `BOT_PROVIDER`, `OPENAI_COMPATIBLE_*`). You get a public URL like `https://your-api.onrender.com/chat` and `/docs`.
-- **Streamlit UI:** **[Streamlit Community Cloud](https://share.streamlit.io)** or **[Hugging Face Spaces](https://huggingface.co/spaces)** — deploy `app.py` and set Secrets for a free LLM (e.g. Groq, OpenRouter).
-
-See **[DEPLOYMENT.md](DEPLOYMENT.md)** for step-by-step instructions, env vars, and curl examples.
+| Component   | Choice                          |
+|------------|-----------------------------------|
+| Frontend   | **Streamlit** (Giggso Incident Bot UI) |
+| API        | **FastAPI** + **Uvicorn**        |
+| Default bot| **OpenClaw** + **OpenAI**        |
+| Compliance | **compliance.py** (input/output + system prompt) |
+| Voice STT  | **SpeechRecognition** + Google   |
+| Voice TTS  | **gTTS**                        |
+| Config     | **python-dotenv** (`.env`)       |
 
 ---
 
-## Quick Start
+## Quick start (local)
 
-### 1. Clone / unzip and install
+### 1. Clone and install
 
 ```bash
 cd incident-knowledge-assistant
 python -m venv venv
-venv\Scripts\activate   # Windows
-# source venv/bin/activate  # Linux/macOS
+# Windows (PowerShell):
+.\venv\Scripts\Activate.ps1
+# Windows (CMD): venv\Scripts\activate.bat
+# Linux/macOS:   source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Configure environment
+### 2. Environment
 
 ```bash
 copy .env.example .env   # Windows
-# cp .env.example .env   # Linux/macOS
+# cp .env.example .env    # Linux/macOS
 ```
 
 Edit `.env`:
 
-- `API_BEARER_TOKEN` — Set a secure token for the public POST endpoint.
-- `BOT_PROVIDER` — One of: `moltbot`, `clawdbot`, `nanobot`, `openclaw`, `ollama`, `openai_compatible`.
-- If using **MoltBot / ClawDBot / Nanobot**: set the corresponding `*_URL` (e.g. `MOLTBOT_URL=https://...`).
-- If using **OpenClaw** ([openclaw.ai](https://openclaw.ai)): install OpenClaw (`npm i -g openclaw`, then `openclaw onboard`), enable the chat completions endpoint in OpenClaw config, then set `BOT_PROVIDER=openclaw`. Optional: `OPENCLAW_GATEWAY_URL` (default `http://localhost:18789`), `OPENCLAW_AUTH_TOKEN`, `OPENCLAW_AGENT_ID` (default `main`).
-- If using **Ollama** (default): install [Ollama](https://ollama.ai) and run e.g. `ollama run llama3.2`; set `OLLAMA_BASE_URL` if different.
+- **OpenClaw + OpenAI (recommended):**  
+  `BOT_PROVIDER=openclaw`  
+  `OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789` (or `3000` if you run OpenClaw on 3000)  
+  Set `OPENCLAW_AUTH_TOKEN` if your OpenClaw gateway uses auth.  
+  OpenClaw reads `OPENAI_API_KEY` from the environment for the default model.
 
-**Testing without Giggso URLs:** Run the local mock server, then point one of the bot URLs at it:
+- **API auth:**  
+  `API_BEARER_TOKEN` — used for `Authorization: Bearer <token>` on `POST /chat`.
 
-```bash
-python scripts/mock_bot_server.py
-```
+- **Other bots:**  
+  For MoltBot/ClawDBot/Nanobot set the corresponding `*_URL` and `BOT_PROVIDER`.  
+  For Ollama: `BOT_PROVIDER=ollama`, run `ollama run llama3.2`.  
+  For OpenAI-compatible (Groq/OpenRouter): `BOT_PROVIDER=openai_compatible`, `OPENAI_COMPATIBLE_URL`, `OPENAI_COMPATIBLE_API_KEY`.
 
-In `.env` set e.g. `BOT_PROVIDER=clawdbot` and `CLAWDBOT_URL=http://localhost:9090/clawdbot`. Test URLs: `http://localhost:9090/moltbot`, `http://localhost:9090/clawdbot`, `http://localhost:9090/nanobot`.
+### 3. Run OpenClaw (if using OpenClaw backend)
 
-**OpenClaw (Clawbot) integration** — [OpenClaw](https://openclaw.ai) is the open-source personal AI assistant (formerly Clawdbot/Moltbot). To use it as a bot backend:
+Install and run OpenClaw locally (e.g. `npm i -g openclaw`, `openclaw onboard`), enable the chat completions endpoint in config, and start the gateway (default port 18789 or 3000). See [OpenClaw docs](https://openclaw.ai).
 
-1. Install OpenClaw: `npm i -g openclaw` (or use the [install script](https://openclaw.ai/)).
-2. Run `openclaw onboard` and complete setup.
-3. In your OpenClaw config (e.g. `~/.openclaw/config.yml`), enable the HTTP chat completions endpoint:
-   ```yaml
-   gateway:
-     http:
-       endpoints:
-         chatCompletions:
-           enabled: true
-   ```
-4. In this app’s `.env`: set `BOT_PROVIDER=openclaw`. Optionally set `OPENCLAW_GATEWAY_URL` (default `http://localhost:18789`), `OPENCLAW_AUTH_TOKEN` if you enabled gateway auth, and `OPENCLAW_AGENT_ID` (default `main`).
+### 4. Run the app
 
-The app sends incident context and your question to the OpenClaw Gateway via its OpenAI-compatible `/v1/chat/completions` endpoint.
-
-**Hackathon / personal use (no Giggso URLs)** — Use free, real backends for real-time multi-bot demos:
-
-| Option | What to do | Real-time? |
-|--------|------------|------------|
-| **Ollama** | Install [Ollama](https://ollama.ai), run `ollama run llama3.2`. Set `BOT_PROVIDER=ollama`. | Yes, local. |
-| **Mock “3 bots”** | Run `python scripts/mock_bot_server.py`. In `.env` set `MOLTBOT_URL=http://localhost:9090/moltbot`, `CLAWDBOT_URL=http://localhost:9090/clawdbot`, `NANOBOT_URL=http://localhost:9090/nanobot`. | Yes, local mock. |
-| **Multi-bot mode** | Set `MULTI_BOT_ENABLED=true` in `.env`. The app will call **every** configured backend (Ollama + mock URLs + OpenAI-compatible) and show each reply. Great for hackathon demos. | Yes. |
-| **OpenClaw** | Install [OpenClaw](https://openclaw.ai) (`npm i -g openclaw`, `openclaw onboard`). Enable `gateway.http.endpoints.chatCompletions.enabled: true` in OpenClaw config. Set `BOT_PROVIDER=openclaw`. Gateway runs on port 18789. | Yes, local. |
-| **Free cloud LLM** | Use an OpenAI-compatible API (e.g. [Groq](https://console.groq.com) free tier, [OpenRouter](https://openrouter.ai) free models). Set `OPENAI_COMPATIBLE_URL`, `OPENAI_COMPATIBLE_API_KEY`, `BOT_PROVIDER=openai_compatible`. | Yes, over internet. |
-
-**Example: multiple bots at once (no Giggso).** In one terminal run the mock server; in `.env` set:
-
-```
-BOT_PROVIDER=ollama
-MULTI_BOT_ENABLED=true
-CLAWDBOT_URL=http://localhost:9090/clawdbot
-```
-
-Start Ollama (`ollama run llama3.2`). Then run the app: each question goes to **Ollama + ClawDBot (mock)** and you see both answers in real time.
-
-**How you get these URLs in real-time / production**
-
-- **Giggso-hosted**: When you have access to Giggso’s MoltBot/ClawDBot/Nanobot, they provide the base URLs (e.g. `https://api.giggso.com/moltbot`) via their dashboard, API docs, or support. You set them once in your environment.
-- **Your deployment**: In production you don’t “fetch” URLs at runtime — you **configure** them where the app runs:
-  - **Env vars**: Set `MOLTBOT_URL`, `CLAWDBOT_URL`, `NANOBOT_URL` in `.env` (local) or in your host’s environment (systemd, Docker, etc.).
-  - **Cloud / Kubernetes**: Inject the same variables from a secrets manager (e.g. AWS Secrets Manager, Azure Key Vault, HashiCorp Vault) or from Kubernetes Secrets/ConfigMaps when the container starts.
-  - **CI/CD**: Your pipeline (GitHub Actions, GitLab CI, etc.) can write a `.env` or set env vars from stored secrets before starting the app.
-- **Self-hosted / open-source**: If you run your own Moltbot/ClawdBot instance (e.g. Moltbot on `http://localhost:18789` or your server), use that base URL (e.g. `MOLTBOT_URL=http://your-server:18789`) in the same way.
-
-The app reads these URLs from the environment at startup; there is no runtime “discovery” of URLs — you configure them where the app is deployed.
-
-**Production deployment with the 3 bots (MoltBot / ClawDBot / Nanobot)**
-
-- **No Ollama default** — The app uses the first available of the three bots when `BOT_PROVIDER=auto` (or when unset). If none of `MOLTBOT_URL`, `CLAWDBOT_URL`, `NANOBOT_URL` is set, the app fails at startup with a clear error (API server) or shows the error in the UI (Streamlit).
-- **Single bot** — Set exactly one URL (e.g. `CLAWDBOT_URL=https://your-gateway/clawdbot`) and `BOT_PROVIDER=clawdbot` (or `auto`). The chatbot uses that bot in real time.
-- **Multi-bot** — Set all three URLs and `MULTI_BOT_ENABLED=true` to send each message to every configured bot and show each reply. For production multi-bot, only the 3 bots are used unless you set `INCLUDE_FALLBACK_BOTS_IN_MULTI=true`.
-- **Realtime in production** — Inject env vars when the container/process starts (e.g. Kubernetes Secret to env, or `.env` on the host). The API server runs `validate_bot_config()` on startup and will not start if no bot URL is set.
-
-Example production env (single bot): set `API_BEARER_TOKEN`, `BOT_PROVIDER=clawdbot`, `CLAWDBOT_URL=https://api.your-company.com/clawdbot`. Example local testing (mock): set `BOT_PROVIDER=auto`, `CLAWDBOT_URL=http://localhost:9090/clawdbot` and run `python scripts/mock_bot_server.py` in another terminal.
-
-### 3. Run the app
-
-**Streamlit UI (default port 8501):**
+**Streamlit UI (Giggso Incident Bot):**
 
 ```bash
-streamlit run app.py
+python -m streamlit run app.py
 ```
 
-**API server (for public POST endpoint):**
+Open http://localhost:8501. Use the prompt box or chat input to send messages; use **Voice input** for speech-to-text.
+
+**API server (optional, e.g. port 8000):**
 
 ```bash
 uvicorn api_server:app --host 0.0.0.0 --port 8000
 ```
 
-### 4. Use the UI
+---
 
-1. Open **Upload log file** or **Paste log text** and provide your error log (or use `sample_error.log`).
-2. Optionally **swap** the source later by uploading another file or pasting again and clicking **Use pasted text as source**.
-3. Type or use **Voice input** to ask questions (e.g. “What’s causing the NullPointerException?” or “How do I fix the database connection?”).
-4. Read the assistant’s recommended fixes; you can play TTS if available.
+## Deployment (Render — one service)
 
-### 5. Call the public POST endpoint
+Deploy the **API and OpenClaw in a single container** (OpenAI only, no Groq/Qwen in the image):
+
+1. **Render** → New Web Service → Connect repo.
+2. **Settings:** Environment = Docker, Dockerfile = `Dockerfile.combined`.
+3. **Environment variables:**
+
+   | Key | Value |
+   |-----|--------|
+   | `API_BEARER_TOKEN` | Your secret (for `Authorization: Bearer`) |
+   | `BOT_PROVIDER` | `openclaw` |
+   | `OPENCLAW_GATEWAY_URL` | `http://127.0.0.1:3000` |
+   | `OPENCLAW_GATEWAY_TOKEN` | Your gateway secret |
+   | `OPENCLAW_AUTH_TOKEN` | Same as `OPENCLAW_GATEWAY_TOKEN` |
+   | `OPENAI_API_KEY` | Your OpenAI API key |
+
+   Optional: `OPENCLAW_DEFAULT_MODEL` (e.g. `openai/gpt-4o-mini`).
+
+4. Create the service. First build can take 10–20 minutes (OpenClaw built from source).  
+5. API base URL: `https://<your-service>.onrender.com` → `POST /chat`, `GET /docs`.
+
+See **[RENDER_COMBINED.md](RENDER_COMBINED.md)** for full steps, memory/512MB notes, and troubleshooting.
+
+---
+
+## API usage
+
+**POST /chat**
 
 ```bash
-curl -X POST https://your-host/chat \
-  -H "Authorization: Bearer YOUR_TOKEN" \
+curl -X POST https://your-api.onrender.com/chat \
+  -H "Authorization: Bearer YOUR_API_BEARER_TOKEN" \
   -H "Content-Type: application/json" \
-  -d "{\"message\": \"What is the root cause?\", \"context\": \"ERROR NullPointerException at PaymentService.process\"}"
+  -d '{"message": "What is the root cause?", "context": "ERROR NullPointerException at PaymentService.process"}'
 ```
 
 Response:
 
 ```json
-{ "reply": "...", "bot": "Ollama" }
+{ "reply": "...", "bot": "OpenClaw" }
+```
+
+- **401** — Missing or invalid Bearer token.  
+- **429** — Rate limit (e.g. from OpenAI); retry later.  
+- **500** — Server or bot error (see `detail`).
+
+Compliance is applied in the same way as in the UI: input/output checks and system prompt.
+
+---
+
+## Project structure
+
+```
+incident-knowledge-assistant/
+├── app.py              # Streamlit UI (Giggso Incident Bot)
+├── api_server.py       # FastAPI app: POST /chat, GET /docs
+├── config.py            # Env and bot provider selection
+├── compliance.py        # Input/output validation + system prompt
+├── voice_utils.py       # STT / TTS helpers
+├── bots/
+│   ├── base.py         # BotProvider, get_bot()
+│   ├── openclaw_bot.py # OpenClaw + compliance
+│   ├── openai_compatible.py
+│   ├── ollama_bot.py
+│   └── ...
+├── Dockerfile.combined  # API + OpenClaw (OpenAI) single image
+├── start-combined.sh   # Start OpenClaw gateway then uvicorn
+├── requirements.txt    # Full app (Streamlit + API)
+├── requirements-api.txt # API only (e.g. Render combined)
+├── .env.example
+├── RENDER_COMBINED.md  # Render deploy details
+└── DEPLOYMENT.md       # Other deployment options
 ```
 
 ---
 
-## Architecture Overview
+## Compliance
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  Streamlit (app.py)                                              │
-│  • Dual input: file upload + paste (dynamic swap)                │
-│  • Chat UI + embedded HTML/CSS                                   │
-│  • Voice: STT (SpeechRecognition) → chat; TTS (gTTS) for replies │
-└──────────────────────────────┬──────────────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  bots/ (BotProvider)                                             │
-│  • MoltBot / ClawDBot / Nanobot (when URL set)                   │
-│  • OpenClaw (openclaw.ai gateway, port 18789)                     │
-│  • Ollama (default) / OpenAI-compatible (fallback)                │
-└──────────────────────────────┬──────────────────────────────────┘
-                                │
-┌───────────────────────────────┴──────────────────────────────────┐
-│  FastAPI (api_server.py)                                          │
-│  • POST /chat — Bearer token auth                                  │
-│  • Same bot backend as Streamlit                                  │
-└──────────────────────────────────────────────────────────────────┘
-```
+The **OpenClaw bot** (used by both the UI and the API) applies:
 
-- **config.py**: Loads `.env`; selects bot provider and URLs.
-- **voice_utils.py**: `listen_and_transcribe()` (STT), `text_to_speech_audio()` (TTS).
-- **Bot implementations**: `bots/moltbot.py`, `bots/clawdbot.py`, `bots/nanobot.py`, `bots/openclaw_bot.py`, `bots/ollama_bot.py`, `bots/openai_compatible.py`.
+- **Input:** Rejects messages that look like prompt injection or manipulation (e.g. “ignore previous instructions”, “reveal system prompt”) and returns a fixed refusal.
+- **System prompt:** Instructs the model to avoid role changes, hallucination, data leakage, and safety bypass.
+- **Output:** If the model reply looks like leakage or bypass, it is replaced with a generic compliance message so the model’s text is not shown.
+
+See **compliance.py** for patterns and messages.
 
 ---
 
-## Assumptions
+## Configuration summary
 
-- **MoltBot / ClawDBot / Nanobot**: Assumed to expose a `POST .../chat` with JSON `{ "message": "...", "context": "..." }` and a response field among `reply`, `text`, or `response`. If Giggso provides a different contract, only the corresponding `bots/*.py` file needs to be updated.
-- **Voice**: Microphone and internet are available for Google STT; TTS uses gTTS (internet). No API keys required for default STT/TTS.
-- **Log format**: Any text or JSON; the bot receives it as a single context string.
-
----
-
-## Limitations
-
-- Voice input is fixed to ~10 seconds per recording; no streaming STT.
-- Bot response format for MoltBot/ClawDBot/Nanobot is assumed; real APIs may require small adapter changes.
-- Public POST endpoint must be exposed (e.g. via cloud/ngrok) and protected only by Bearer token; consider rate limiting and HTTPS in production.
-
----
-
-## Phase 1 Deliverables Checklist
-
-- [x] **Source code**: This repository (zip and submit).
-- [x] **README**: Usage, architecture, assumptions, limitations (this file).
-- [ ] **Demonstration video**: Recording of the app running (to be submitted separately).
-- [x] **Public POST endpoint**: `/chat` with `Authorization: Bearer <token>` (deploy and expose as required).
+| Variable | Purpose |
+|----------|---------|
+| `API_BEARER_TOKEN` | Auth for `POST /chat`. |
+| `BOT_PROVIDER` | `openclaw` \| `ollama` \| `openai_compatible` \| `moltbot` \| `clawdbot` \| `nanobot` \| `auto`. |
+| `OPENCLAW_GATEWAY_URL` | OpenClaw gateway URL (e.g. `http://127.0.0.1:18789` or `http://127.0.0.1:3000` in Docker). |
+| `OPENCLAW_AUTH_TOKEN` | Gateway Bearer token (if enabled). |
+| `OPENCLAW_AGENT_ID` | Agent id (default `main`). |
+| `OPENAI_API_KEY` | Used by OpenClaw for default OpenAI model. |
+| `OPENCLAW_DEFAULT_MODEL` | Override model (e.g. `openai/gpt-4o-mini`). |
+| `OPENAI_COMPATIBLE_URL` / `OPENAI_COMPATIBLE_API_KEY` | For `BOT_PROVIDER=openai_compatible`. |
 
 ---
 
 ## License
 
-This project is licensed under the **MIT License** — see [LICENSE](LICENSE). You can use, modify, and distribute it freely (including for commercial use). Open-source dependencies (Streamlit, FastAPI, etc.) are used under their respective licenses.
+MIT — see [LICENSE](LICENSE).
