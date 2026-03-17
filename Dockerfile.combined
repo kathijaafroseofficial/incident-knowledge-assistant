@@ -45,7 +45,7 @@ COPY --from=openclaw-build /build/skills ./openclaw/skills
 COPY --from=openclaw-build /build/docs ./openclaw/docs
 
 # Install Python API into a venv (avoids PEP 668 externally-managed-environment)
-COPY api_server.py config.py requirements-api.txt ./
+COPY api_server.py config.py compliance.py requirements-api.txt ./
 COPY bots ./bots
 RUN python3 -m venv /app/venv && /app/venv/bin/pip install --no-cache-dir -r requirements-api.txt
 

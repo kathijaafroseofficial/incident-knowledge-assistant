@@ -31,7 +31,7 @@ if [ -n "$OPENCLAW_GATEWAY_TOKEN" ]; then
 EOF
 fi
 
-# Start OpenClaw gateway on 3000 (internal); API uses OPENCLAW_GATEWAY_URL=http://127.0.0.1:3000
+# Start OpenClaw gateway on 3000 (internal). NODE_OPTIONS caps heap for 512MB Render limit.
 # --bind loopback: only 127.0.0.1 (no Control UI config; API is in same container)
 cd /app/openclaw
 node openclaw.mjs gateway --allow-unconfigured --port 3000 --bind loopback &
