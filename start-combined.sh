@@ -32,15 +32,16 @@ EOF
 fi
 
 # Start OpenClaw gateway on 3000 (internal); API will use OPENCLAW_GATEWAY_URL=http://127.0.0.1:3000
+# --bind lan = listen on 0.0.0.0 (CLI no longer accepts raw 0.0.0.0)
 cd /app/openclaw
-node openclaw.mjs gateway --allow-unconfigured --port 3000 --bind 0.0.0.0 &
+node openclaw.mjs gateway --allow-unconfigured --port 3000 --bind lan &
 OPENCLAW_PID=$!
 
 # Give gateway a moment to bind
 sleep 3
 
 # Run the Incident Knowledge API on $PORT (Render sends traffic here)
-# Force gateway URL so the API talks to in-container OpenClaw on 3000 (not default 18789)
-export OPENCLAW_GATEWAY_URL="${OPENCLAW_GATEWAY_URL:-http://127.0.0.1:3000}"
+# In this container OpenClaw is always on 3000 — force URL so API never uses default 18789
+export OPENCLAW_GATEWAY_URL="http://127.0.0.1:3000"
 cd /app
 exec /app/venv/bin/python3 -m uvicorn api_server:app --host 0.0.0.0 --port "${PORT:-8000}"

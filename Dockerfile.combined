@@ -55,6 +55,8 @@ RUN chmod +x /start-combined.sh
 # API runs from /app; OpenClaw from /app/openclaw (start script cds)
 ENV OPENCLAW_STATE_DIR=/data
 ENV PYTHONUNBUFFERED=1
+# In combined image OpenClaw is on 3000; ensure API uses it (override Render/env default 18789)
+ENV OPENCLAW_GATEWAY_URL=http://127.0.0.1:3000
 
 EXPOSE 3000 8000
 ENTRYPOINT ["/start-combined.sh"]
