@@ -30,16 +30,18 @@ This deploys the **Incident Knowledge API** and **OpenClaw gateway** in a **sing
    | `OPENCLAW_GATEWAY_TOKEN` | A secret you create (gateway auth). |
    | `OPENCLAW_AUTH_TOKEN` | **Same value** as `OPENCLAW_GATEWAY_TOKEN` |
 
-   **Model — free Qwen (no paid key):**
+   **Model — free Groq (no paid key):**
 
    | Key | Value (what to set) |
    |-----|----------------------|
-   | `GROQ_API_KEY` | Free key from [console.groq.com](https://console.groq.com). OpenClaw uses **Qwen3 32B** on Groq's free tier (no credit card). |
+   | `GROQ_API_KEY` | Free key from [console.groq.com](https://console.groq.com). Default model is **Llama 3.1 8B** (higher free limits). |
 
    **Model — optional (Claude):** Only if you prefer Claude over Qwen: set `ANTHROPIC_API_KEY` (from [console.anthropic.com](https://console.anthropic.com)). If both `GROQ_API_KEY` and `ANTHROPIC_API_KEY` are set, Groq (Qwen) is used.
 
-   **Optional:** `OPENCLAW_DEFAULT_MODEL` — e.g. `groq/llama-3.3-70b-versatile` or `anthropic/claude-3-5-sonnet-latest`. `OPENCLAW_AGENT_ID` = `main` (default).  
+   **Optional:** `OPENCLAW_DEFAULT_MODEL` — default is `groq/llama-3.1-8b-instant`. Use `groq/qwen/qwen3-32b` for Qwen, or `anthropic/claude-3-5-sonnet-latest` for Claude. `OPENCLAW_AGENT_ID` = `main` (default).  
    **Do not set:** `PORT` — Render sets it automatically.
+
+   **If you see "API rate limit reached":** The default is now Llama 3.1 8B (higher free limits). If you set `OPENCLAW_DEFAULT_MODEL=groq/qwen/qwen3-32b`, Qwen has a lower quota (1,000 req/day); wait and retry or remove that env to use Llama.
 
    **Sample (copy and replace placeholders in Render → Environment):**
 
