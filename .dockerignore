@@ -1,0 +1,18 @@
+# Don't copy into Docker build
+.env
+.env.*
+venv
+.venv
+__pycache__
+*.pyc
+.git
+.openclaw
+*.md
+.streamlit
+assets
+*.bat
+OPENCLAW_FLY_DEPLOY.md
+PUSH_AND_RENDER.md
+render.yaml
+Dockerfile
+*.log
