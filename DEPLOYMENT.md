@@ -52,6 +52,101 @@ The **POST /chat** endpoint can be exposed on the internet at no cost using Rend
 
 ---
 
+## Use OpenClaw with the API on Render (deploy OpenClaw for free)
+
+Your API on Render runs in the **cloud**. It cannot reach `127.0.0.1:18789` — that is your own PC. You have two choices:
+
+### Option A: One Render app with API + OpenClaw (no second service)
+
+Deploy **both** the Incident Knowledge API and OpenClaw in a **single** Render Web Service. OpenClaw runs inside the same container on port 3000; the API listens on `$PORT` and calls OpenClaw at `http://127.0.0.1:3000`. One URL, one service.
+
+See **[RENDER_COMBINED.md](RENDER_COMBINED.md)** for steps: use **Dockerfile.combined**, set env vars (`BOT_PROVIDER=openclaw`, `OPENCLAW_GATEWAY_URL=http://127.0.0.1:3000`, `OPENCLAW_GATEWAY_TOKEN`, `OPENCLAW_AUTH_TOKEN`, `ANTHROPIC_API_KEY`). First build can take 10–20 min (OpenClaw built from source).
+
+### Option B: Use a cloud LLM on Render (easiest, no OpenClaw)
+
+Don't use OpenClaw for the **deployed** API. On Render set:
+
+- `BOT_PROVIDER` = `openai_compatible`
+- `OPENAI_COMPATIBLE_URL` = `https://api.groq.com/openai/v1` (or OpenRouter)
+- `OPENAI_COMPATIBLE_API_KEY` = your key
+
+Then the API talks to Groq/OpenRouter from the cloud. No OpenClaw deployment needed. Use OpenClaw only when running the app **locally**.
+
+### Option C: Deploy OpenClaw on Fly.io (free tier), then point Render at it
+
+Deploy the OpenClaw gateway to **Fly.io** so it has a **public URL**. Then in Render set `BOT_PROVIDER=openclaw` and `OPENCLAW_GATEWAY_URL=https://your-openclaw-app.fly.dev`.
+
+**1. Install Fly CLI and log in:** [fly.io/docs/hands-on/install-flyctl](https://fly.io/docs/hands-on/install-flyctl/) then `fly auth login` (Fly free tier may require a card on file).
+
+**2. Clone OpenClaw and create the app:**
+
+```bash
+git clone https://github.com/openclaw/openclaw.git
+cd openclaw
+fly apps create my-openclaw
+fly volumes create openclaw_data --size 1 --region iad
+```
+
+**3. Configure `fly.toml`** in the openclaw repo (use at least 2GB RAM). See [OpenClaw Fly.io docs](https://open-claw.bot/docs/deployment/docker). Key: `processes.app` = `node dist/index.js gateway --allow-unconfigured --port 3000 --bind lan`, and `[http_service]` with `internal_port = 3000`, `force_https = true`, plus `[mounts]` for `/data`.
+
+**4. Set Fly secrets:** `fly secrets set OPENCLAW_GATEWAY_TOKEN=$(openssl rand -hex 32)` and add your model API keys (e.g. ANTHROPIC_API_KEY).
+
+**5. Deploy:** `fly deploy`. Then `fly ssh console` and create `/data/openclaw.json` with **chat completions enabled** and the same gateway token:
+
+```json
+{
+  "gateway": {
+    "http": { "endpoints": { "chatCompletions": { "enabled": true } } },
+    "auth": { "mode": "token", "token": "SAME_AS_OPENCLAW_GATEWAY_TOKEN" }
+  },
+  "agents": { "defaults": { "model": { "primary": "anthropic/claude-3-5-sonnet-latest" } }, "list": [{ "id": "main", "default": true }] }
+}
+```
+
+Then `exit` and `fly machine restart --all`.
+
+**6. Public URL:** `https://my-openclaw.fly.dev` (replace with your app name).
+
+**7. In Render → Environment:** Set `BOT_PROVIDER=openclaw`, `OPENCLAW_GATEWAY_URL=https://my-openclaw.fly.dev`, `OPENCLAW_AUTH_TOKEN` = same token as above. Redeploy.
+
+### Option B (alternatives): Other free hosts for a public OpenClaw URL
+
+If Fly.io is not an option (e.g. account verification or region), you can host OpenClaw on one of these **free** platforms to get a public URL. Then set that URL in Render as `OPENCLAW_GATEWAY_URL` and use the same token for `OPENCLAW_AUTH_TOKEN`.
+
+| Platform | Free tier | Notes |
+|----------|-----------|--------|
+| **Render (2nd service)** | Free web service (750 hrs/month) | Deploy OpenClaw from [openclaw/openclaw](https://github.com/openclaw/openclaw) as a **Docker** Web Service on the same Render account. No persistent disk on free tier — use a start command that writes `openclaw.json` from env vars into the state dir before starting the gateway (see below). |
+| **Koyeb** | 2 free services | [koyeb.com](https://www.koyeb.com) — Deploy from GitHub or Docker image. Free tier does not attach persistent volumes; same “config from env at startup” approach as Render. |
+| **Oracle Cloud Free Tier** | Always-free VM(s) | [cloud.oracle.com](https://www.oracle.com/cloud/free/) — Create an always-free VM (e.g. Ubuntu), SSH in, install Docker, clone OpenClaw, run with a volume for `/data`. Full control; no charge if you stay within free limits. |
+| **Railway** | Limited free credit | [railway.app](https://railway.app) — Can run Docker; free trial credit, then pay-as-you-go. |
+| **Google Cloud Run** | Free request quota | [cloud.google.com/run](https://cloud.google.com/run) — Free tier by requests; good if you can run OpenClaw in a request-scoped way. |
+
+**Render as the second service (OpenClaw on Render):**
+
+1. In the same Render dashboard, click **New → Web Service**.
+2. Connect the **openclaw/openclaw** GitHub repo (or your fork). Choose **Docker** as the environment.
+3. **Build:** Docker (use repo’s Dockerfile). **Start command:** the gateway must listen on `$PORT`; the OpenClaw Dockerfile may expect port 3000, so set **Start Command** to something like:  
+   `node dist/index.js gateway --allow-unconfigured --port ${PORT} --bind 0.0.0.0`  
+   (Render sets `PORT`; use it and bind to `0.0.0.0`.)
+4. **Environment variables:**  
+   `OPENCLAW_STATE_DIR=/data`  
+   `OPENCLAW_GATEWAY_TOKEN` = your token (same one you’ll use in Render’s API service).  
+   Add your model key (e.g. `ANTHROPIC_API_KEY`).  
+   Because the free instance has **ephemeral disk**, you need the config to be recreated on each start. Either:
+   - Use a **custom start script** that writes `/data/openclaw.json` (with `gateway.http.endpoints.chatCompletions.enabled: true` and `gateway.auth.token`) from env vars, then runs the gateway; or  
+   - Rely on OpenClaw’s `--allow-unconfigured` and any env-based config it supports, then add the minimal JSON via a build step or script.
+5. After deploy, your OpenClaw URL will be like `https://your-openclaw-service.onrender.com`. In your **Incident Knowledge API** service on Render, set `BOT_PROVIDER=openclaw`, `OPENCLAW_GATEWAY_URL=https://your-openclaw-service.onrender.com`, `OPENCLAW_AUTH_TOKEN` = same token. Redeploy the API.
+
+**Oracle Cloud (always-free VM):**
+
+1. Create an Oracle Cloud account and create an **always-free** VM (e.g. Ubuntu 22.04).
+2. SSH into the VM. Install Docker: `curl -fsSL https://get.docker.com | sh`.
+3. Clone OpenClaw: `git clone https://github.com/openclaw/openclaw.git && cd openclaw`.
+4. Create a volume dir and `openclaw.json` with chatCompletions enabled and your gateway token.
+5. Run the gateway in Docker (map the config dir and expose port 3000). Use a reverse proxy (e.g. Caddy or Nginx) with HTTPS (e.g. Let’s Encrypt) and open the firewall so the VM is reachable on 80/443. Your public URL will be `https://your-domain-or-public-ip`.
+
+---
+
 ## Option 1: Streamlit Community Cloud (UI)
 
 **Cost:** Free  

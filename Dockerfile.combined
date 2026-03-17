@@ -1,0 +1,58 @@
+# Combined image: OpenClaw gateway + Incident Knowledge API (single Render service)
+# API listens on $PORT; OpenClaw on 3000 (internal). Set OPENCLAW_GATEWAY_URL=http://127.0.0.1:3000 in Render.
+
+# ── Stage 1: Build OpenClaw ──────────────────────────────────────
+FROM node:24-bookworm AS openclaw-build
+WORKDIR /build
+
+# Install git and Bun (needed for OpenClaw build)
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+  && rm -rf /var/lib/apt/lists/* \
+  && curl -fsSL https://bun.sh/install | bash \
+  && mv /root/.bun/bin/bun /usr/local/bin/ 2>/dev/null || true
+ENV PATH="/root/.bun/bin:${PATH}"
+
+RUN corepack enable
+RUN git clone --depth 1 https://github.com/openclaw/openclaw.git .
+
+# Install and build (may take several minutes; reduce memory if OOM: NODE_OPTIONS=--max-old-space-size=1536)
+ENV NODE_OPTIONS=--max-old-space-size=2048
+RUN pnpm install --frozen-lockfile
+RUN pnpm canvas:a2ui:bundle 2>/dev/null || (mkdir -p src/canvas-host/a2ui && echo "/* stub */" > src/canvas-host/a2ui/a2ui.bundle.js && echo "stub" > src/canvas-host/a2ui/.bundle.hash)
+RUN pnpm build:docker
+ENV OPENCLAW_PREFER_PNPM=1
+RUN pnpm ui:build
+RUN CI=true pnpm prune --prod
+
+# ── Stage 2: Runtime (OpenClaw + Python API) ──────────────────────
+FROM node:24-bookworm-slim
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  python3 python3-pip python3-venv curl procps \
+  && rm -rf /var/lib/apt/lists/*
+
+# Copy OpenClaw from build stage
+COPY --from=openclaw-build /build/dist ./openclaw/dist
+COPY --from=openclaw-build /build/node_modules ./openclaw/node_modules
+COPY --from=openclaw-build /build/package.json ./openclaw/
+COPY --from=openclaw-build /build/openclaw.mjs ./openclaw/
+COPY --from=openclaw-build /build/extensions ./openclaw/extensions
+COPY --from=openclaw-build /build/skills ./openclaw/skills
+COPY --from=openclaw-build /build/docs ./openclaw/docs
+
+# Install Python API
+COPY api_server.py config.py requirements-api.txt ./
+COPY bots ./bots
+RUN pip3 install --no-cache-dir -r requirements-api.txt
+
+# Start script: create config, start OpenClaw on 3000, then uvicorn on $PORT
+COPY start-combined.sh /start-combined.sh
+RUN chmod +x /start-combined.sh
+
+# API runs from /app; OpenClaw from /app/openclaw (start script cds)
+ENV OPENCLAW_STATE_DIR=/data
+ENV PYTHONUNBUFFERED=1
+
+EXPOSE 3000 8000
+ENTRYPOINT ["/start-combined.sh"]
