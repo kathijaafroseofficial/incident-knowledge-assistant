@@ -37,7 +37,7 @@ When prompted, sign in to GitHub (browser or token). After this, your code will 
    - **Branch:** `main`
    - **Root directory:** (leave blank)
    - **Runtime:** Python
-   - **Build command:** `pip install -r requirements.txt`
+   - **Build command:** `pip install -r requirements-api.txt`
    - **Start command:** `uvicorn api_server:app --host 0.0.0.0 --port $PORT`
    - **Plan:** Free
 5. Click **Advanced** (or scroll) and add **Environment Variables**:

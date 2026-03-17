@@ -16,7 +16,7 @@ The **POST /chat** endpoint can be exposed on the internet at no cost using Rend
 4. **Configure:**
    - **Name:** e.g. `incident-knowledge-api`
    - **Runtime:** Python
-   - **Build command:** `pip install -r requirements.txt`
+   - **Build command:** `pip install -r requirements-api.txt` (use `requirements-api.txt` to avoid building PyAudio/voice libs on the server)
    - **Start command:** `uvicorn api_server:app --host 0.0.0.0 --port $PORT`
    - **Plan:** Free
 5. **Environment variables** (required; add in the Render dashboard):

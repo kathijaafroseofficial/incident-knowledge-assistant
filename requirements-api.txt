@@ -1,0 +1,9 @@
+# Minimal dependencies for API server only (Render / cloud)
+# Excludes Streamlit, PyAudio, SpeechRecognition, gTTS (not needed for POST /chat)
+
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+requests>=2.31.0
+httpx>=0.25.0
+python-dotenv>=1.0.0
+python-multipart>=0.0.6
