@@ -40,7 +40,20 @@ This deploys the **Incident Knowledge API** and **OpenClaw gateway** in a **sing
    **Model — optional (Claude):** Only if you prefer Claude over Qwen: set `ANTHROPIC_API_KEY` (from [console.anthropic.com](https://console.anthropic.com)). If both `GROQ_API_KEY` and `ANTHROPIC_API_KEY` are set, Groq (Qwen) is used.
 
    **Optional:** `OPENCLAW_DEFAULT_MODEL` — overrides auto-selection. Examples: `openai/gpt-5-nano`, `groq/llama-3.1-8b-instant`, `groq/qwen/qwen3-32b`, `qwen-portal/coder-model`, `anthropic/claude-3-5-sonnet-latest`. `OPENCLAW_AGENT_ID` = `main` (default).  
-   **Optional (Qwen portal):** `OPENCLAW_USE_QWEN_PORTAL=true` — adds qwen-portal provider and OAuth profile so the default model becomes `qwen-portal/coder-model`. **Note:** Qwen portal uses OAuth (browser login). In a headless container you must pre-seed OAuth tokens (e.g. copy the `auth` state from a local OpenClaw that has run `openclaw models auth login --provider qwen-portal`) into the container state dir; otherwise use Groq with `GROQ_API_KEY` for API-key auth.  
+   **Optional (Qwen portal with OAuth tokens):** Set these **Secret** env vars so the container can use Qwen without interactive login. Get the values from your local OpenClaw after running `openclaw models auth login --provider qwen-portal` (check `~/.openclaw/agents/main/agent/auth-profiles.json` or your state dir):
+
+   | Key | Value (set as Secret in Render) |
+   |-----|---------------------------------|
+   | `OPENCLAW_QWEN_PORTAL_ACCESS_TOKEN` | The `access` value from the qwen-portal:default profile. |
+   | `OPENCLAW_QWEN_PORTAL_REFRESH_TOKEN` | The `refresh` value from the qwen-portal:default profile. |
+   | `OPENCLAW_QWEN_PORTAL_EXPIRES` | The `expires` value (Unix ms). Optional; use 0 if unsure. |
+
+   When **access** and **refresh** are set, the start script writes the auth profile and uses **qwen-portal/coder-model**. Do **not** commit these values to git; use Render **Secret** environment variables only.
+
+   **Alternative — OAuth via API (recommended):** Call **`POST /auth/qwen-portal`** with the same `Authorization: Bearer <API_BEARER_TOKEN>` header. The API runs `openclaw models auth login --provider qwen-portal --set-default` in the container and **streams the command output** (logs) to the response. Open the URL shown in the stream (e.g. `https://chat.qwen.ai/authorize?user_code=XXXXX&client=qwen-code`) in your browser, enter the code, and approve. The request stays open until you finish; then the tokens are saved and **qwen-portal/coder-model** is used for `POST /chat`. Use a client that supports long-lived streaming (e.g. 2–5 min) and displays the response body as text (e.g. curl, or a small frontend).  
+
+   **Alternative — OAuth via startup logs (one-time):** Set `OPENCLAW_QWEN_PORTAL_AUTH_INTERACTIVE=true` and deploy; the start script prints the URL in **Render → Logs**. Open it and approve; then tokens are saved.  
+
    **Workspace:** The start script sets `agents.defaults.workspace` to `$OPENCLAW_STATE_DIR/workspace` (e.g. `/data/workspace`), so paths match the deployed environment.  
    **Do not set:** `PORT` — Render sets it automatically.
 
