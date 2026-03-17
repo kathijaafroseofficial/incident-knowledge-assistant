@@ -10,7 +10,13 @@ mkdir -p "$OPENCLAW_STATE_DIR"
 
 # Create openclaw.json from env so chat completions work (no persistent disk)
 # OPENCLAW_GATEWAY_TOKEN must be set in Render; same token as OPENCLAW_AUTH_TOKEN for the API.
+# Model: use GROQ_API_KEY for free Qwen (Groq); else ANTHROPIC_API_KEY for Claude.
 if [ -n "$OPENCLAW_GATEWAY_TOKEN" ]; then
+  if [ -n "$GROQ_API_KEY" ]; then
+    PRIMARY_MODEL="${OPENCLAW_DEFAULT_MODEL:-groq/qwen/qwen3-32b}"
+  else
+    PRIMARY_MODEL="${OPENCLAW_DEFAULT_MODEL:-anthropic/claude-3-5-sonnet-latest}"
+  fi
   cat > "$OPENCLAW_STATE_DIR/openclaw.json" << EOF
 {
   "gateway": {
@@ -18,7 +24,7 @@ if [ -n "$OPENCLAW_GATEWAY_TOKEN" ]; then
     "auth": { "mode": "token", "token": "$OPENCLAW_GATEWAY_TOKEN" }
   },
   "agents": {
-    "defaults": { "model": { "primary": "anthropic/claude-3-5-sonnet-latest" } },
+    "defaults": { "model": { "primary": "$PRIMARY_MODEL" } },
     "list": [{ "id": "main", "default": true }]
   }
 }

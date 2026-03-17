@@ -18,18 +18,41 @@ This deploys the **Incident Knowledge API** and **OpenClaw gateway** in a **sing
    - **Docker context:** (leave default, repo root)  
    - **Plan:** Free (or your chosen plan)
 
-3. **Environment variables** (required):
+3. **Environment variables** — In Render: open your Docker service → **Environment** (left sidebar) → Add each key below. Use the exact values in the “Value” column.
 
-   | Key | Value |
-   |-----|--------|
-   | `API_BEARER_TOKEN` | Your secret token for `POST /chat` (e.g. random string). |
+   **Required:** API auth + gateway (same for all)
+
+   | Key | Value (what to set) |
+   |-----|----------------------|
+   | `API_BEARER_TOKEN` | A secret you create (e.g. [randomkeygen.com](https://randomkeygen.com)). For `Authorization: Bearer <token>` on `POST /chat`. |
    | `BOT_PROVIDER` | `openclaw` |
-   | `OPENCLAW_GATEWAY_URL` | `http://127.0.0.1:3000` (must be this so the API talks to in-container OpenClaw) |
-   | `OPENCLAW_AUTH_TOKEN` | Same value as `OPENCLAW_GATEWAY_TOKEN` (see below). |
-   | `OPENCLAW_GATEWAY_TOKEN` | A secret token (e.g. 32+ random chars). **Use the same value** in the API as `OPENCLAW_AUTH_TOKEN`. |
-   | `ANTHROPIC_API_KEY` | Your Anthropic key (or other model key OpenClaw supports). |
+   | `OPENCLAW_GATEWAY_URL` | `http://127.0.0.1:3000` |
+   | `OPENCLAW_GATEWAY_TOKEN` | A secret you create (gateway auth). |
+   | `OPENCLAW_AUTH_TOKEN` | **Same value** as `OPENCLAW_GATEWAY_TOKEN` |
 
-   Generate one token and set it as both `OPENCLAW_GATEWAY_TOKEN` and `OPENCLAW_AUTH_TOKEN`.
+   **Model — free Qwen (no paid key):**
+
+   | Key | Value (what to set) |
+   |-----|----------------------|
+   | `GROQ_API_KEY` | Free key from [console.groq.com](https://console.groq.com). OpenClaw uses **Qwen3 32B** on Groq's free tier (no credit card). |
+
+   **Model — optional (Claude):** Only if you prefer Claude over Qwen: set `ANTHROPIC_API_KEY` (from [console.anthropic.com](https://console.anthropic.com)). If both `GROQ_API_KEY` and `ANTHROPIC_API_KEY` are set, Groq (Qwen) is used.
+
+   **Optional:** `OPENCLAW_DEFAULT_MODEL` — e.g. `groq/llama-3.3-70b-versatile` or `anthropic/claude-3-5-sonnet-latest`. `OPENCLAW_AGENT_ID` = `main` (default).  
+   **Do not set:** `PORT` — Render sets it automatically.
+
+   **Sample (copy and replace placeholders in Render → Environment):**
+
+   ```
+   API_BEARER_TOKEN=your-secret-for-post-chat-min-32-chars
+   BOT_PROVIDER=openclaw
+   OPENCLAW_GATEWAY_URL=http://127.0.0.1:3000
+   OPENCLAW_GATEWAY_TOKEN=your-gateway-secret-same-as-below
+   OPENCLAW_AUTH_TOKEN=your-gateway-secret-same-as-above
+   GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   ```
+
+   Replace `your-secret-for-post-chat-min-32-chars` and `your-gateway-secret-same-as-above` with your own random strings (e.g. from [randomkeygen.com](https://randomkeygen.com)). Use the **same** value for `OPENCLAW_GATEWAY_TOKEN` and `OPENCLAW_AUTH_TOKEN`. Get `GROQ_API_KEY` at [console.groq.com](https://console.groq.com).
 
 4. **Advanced → Start Command:** leave empty (the image uses `ENTRYPOINT`).
 
