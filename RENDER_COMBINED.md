@@ -44,6 +44,8 @@ This deploys the **Incident Knowledge API** and **OpenClaw gateway** in a **sing
 - **OpenClaw** runs on port 3000 inside the container; the API calls it at `http://127.0.0.1:3000`.
 - No second Render service and no separate OpenClaw URL to manage.
 
+**Build note:** The image skips OpenClaw's web UI build to avoid TypeScript errors in Docker. The gateway and `/v1/chat/completions` work; the in-browser Control UI is not included.
+
 ## If the build fails (OOM or timeout)
 
 Render’s free tier has limited memory. If the OpenClaw build fails:

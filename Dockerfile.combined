@@ -18,10 +18,12 @@ RUN git clone --depth 1 https://github.com/openclaw/openclaw.git .
 # Install and build (may take several minutes; reduce memory if OOM: NODE_OPTIONS=--max-old-space-size=1536)
 ENV NODE_OPTIONS=--max-old-space-size=2048
 RUN pnpm install --frozen-lockfile
+# Stub A2UI if canvas bundle fails (e.g. in CI)
 RUN pnpm canvas:a2ui:bundle 2>/dev/null || (mkdir -p src/canvas-host/a2ui && echo "/* stub */" > src/canvas-host/a2ui/a2ui.bundle.js && echo "stub" > src/canvas-host/a2ui/.bundle.hash)
+# Gateway build only (skip ui:build to avoid TS errors in UI deps; /v1/chat/completions still works)
 RUN pnpm build:docker
 ENV OPENCLAW_PREFER_PNPM=1
-RUN pnpm ui:build
+# Skip UI build: RUN pnpm ui:build  -- avoids @tloncorp/tlon-skill and React type errors in Docker
 RUN CI=true pnpm prune --prod
 
 # ── Stage 2: Runtime (OpenClaw + Python API) ──────────────────────
@@ -41,10 +43,10 @@ COPY --from=openclaw-build /build/extensions ./openclaw/extensions
 COPY --from=openclaw-build /build/skills ./openclaw/skills
 COPY --from=openclaw-build /build/docs ./openclaw/docs
 
-# Install Python API
+# Install Python API into a venv (avoids PEP 668 externally-managed-environment)
 COPY api_server.py config.py requirements-api.txt ./
 COPY bots ./bots
-RUN pip3 install --no-cache-dir -r requirements-api.txt
+RUN python3 -m venv /app/venv && /app/venv/bin/pip install --no-cache-dir -r requirements-api.txt
 
 # Start script: create config, start OpenClaw on 3000, then uvicorn on $PORT
 COPY start-combined.sh /start-combined.sh

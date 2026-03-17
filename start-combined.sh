@@ -35,4 +35,4 @@ sleep 3
 
 # Run the Incident Knowledge API on $PORT (Render sends traffic here)
 cd /app
-exec python3 -m uvicorn api_server:app --host 0.0.0.0 --port "${PORT:-8000}"
+exec /app/venv/bin/python3 -m uvicorn api_server:app --host 0.0.0.0 --port "${PORT:-8000}"
