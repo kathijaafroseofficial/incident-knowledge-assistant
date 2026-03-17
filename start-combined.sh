@@ -32,9 +32,9 @@ EOF
 fi
 
 # Start OpenClaw gateway on 3000 (internal); API will use OPENCLAW_GATEWAY_URL=http://127.0.0.1:3000
-# --bind lan = listen on 0.0.0.0 (CLI no longer accepts raw 0.0.0.0)
+# --bind loopback = default; only 127.0.0.1 (no Control UI config needed; API is in same container)
 cd /app/openclaw
-node openclaw.mjs gateway --allow-unconfigured --port 3000 --bind lan &
+node openclaw.mjs gateway --allow-unconfigured --port 3000 --bind loopback &
 OPENCLAW_PID=$!
 
 # Give gateway a moment to bind
