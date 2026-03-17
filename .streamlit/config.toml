@@ -1,0 +1,19 @@
+# Streamlit config for local and cloud (Streamlit Community Cloud, Hugging Face Spaces)
+# https://docs.streamlit.io/library/advanced-features/configuration
+
+[server]
+headless = true
+port = 8501
+enableCORS = false
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+# Optional: align with GIGGSO blue; primaryColor affects some widgets
+primaryColor = "#0066cc"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f0f4f8"
+textColor = "#1a202c"
+font = "sans serif"

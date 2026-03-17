@@ -1,0 +1,12 @@
+2025-03-16 10:23:41 ERROR [main] com.app.service.PaymentService - Failed to process payment
+java.lang.NullPointerException: Cannot invoke "PaymentRequest.getAmount()" because "request" is null
+	at com.app.service.PaymentService.process(PaymentService.java:42)
+	at com.app.controller.PaymentController.submit(PaymentController.java:28)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+Caused by: PaymentRequest was not validated before calling service
+2025-03-16 10:24:02 WARN  [http-nio-8080] o.a.c.u.Session - Session not found for id ABC123
+2025-03-16 10:24:15 ERROR [pool-2] org.hibernate.engine.jdbc.spi.SqlExceptionHelper - Connection refused: database 'prod_db' on host 10.0.1.50:5432
+	at org.postgresql.core.v3.QueryExecutorImpl.receiveErrorResponse(QueryExecutorImpl.java:...)
+2025-03-16 10:25:00 ERROR [scheduler] com.app.job.ReportJob - Report generation failed: OutOfMemoryError
+	at com.app.report.PdfGenerator.render(PdfGenerator.java:101)
